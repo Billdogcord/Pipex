@@ -5,76 +5,80 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: bsaeed <bsaeed@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2022/07/24 13:20:05 by bsaeed            #+#    #+#             */
-/*   Updated: 2022/07/24 16:34:34 by bsaeed           ###   ########.fr       */
+/*   Created: 2022/07/27 22:10:42 by bsaeed            #+#    #+#             */
+/*   Updated: 2022/07/31 23:47:52 by bsaeed           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "pipex.h"
 
-int	opener(char *file, int flag)
+void	ft_arg_check(int ac)
 {
-	if (flag == 0)
+	if (ac != 5)
 	{
-		if (access(file, F_OK))
-		{
-			write(2, "File not found\n", 15);
-			return (0);
-		}
-		return(open(file, O_RDONLY));
+		ft_putstr_fd("[usage]: need 5 arguments", 2);
+		exit(EXIT_FAILURE);
 	}
-	else
-		return (open(file, O_CREAT | O_TRUNC | O_RDWR, 0644));
 }
 
-void	son(t_pipex pipex, char *av[], char **ev)
+/* Creates outfile & processed
+	cmd even though infile
+		doesnt exist          */
+void	ft_wrong_infile(char *av)
 {
-	pipex.cmd1_args = ft_split(av[2], ' ');
-	pipex.path1 = finalpath(pipex.cmd1_args[0], ev);
-	pipex.infile_fd = opener(av[1], 0);
-	if (dup2(pipex.infile_fd, STDIN_FILENO) == -1)
-		strerror(errno);
-	if (dup2(pipex.pipefd[1], STDOUT_FILENO) == -1)
-		strerror(errno);
-	close(pipex.infile_fd);
-	close(pipex.pipefd[1]);
-	close(pipex.pipefd[0]);
-	if (execve(pipex.path1, pipex.cmd1_args, ev) == -1)
-		strerror(errno);
-	return ;
+	int	fd;
+
+	fd = open(av, O_CREAT | O_TRUNC | O_RDWR, 0644);
+	if (fd == -1)
+		exit(EXIT_FAILURE);
+	if (close(fd) == -1)
+		exit(EXIT_FAILURE);
+	write(2, "no such file or directory", 26);
 }
 
-void	dad(t_pipex pipex, char *av[], char **ev)
+void	closer(int file1, int file2)
 {
-	waitpid(pipex.pid, NULL, 0);
-	pipex.cmd2_args = ft_split(av[3], ' ');
-	pipex.path2 = finalpath(pipex.cmd2_args[0], ev);
-	pipex.outfile_fd = opener(av[4], 1);
-	if (dup2(pipex.outfile_fd, STDOUT_FILENO) == -1)
-		strerror(errno);
-	if (dup2(pipex.pipefd[0], STDIN_FILENO) == -1)
-		strerror(errno);
-	close(pipex.outfile_fd);
-	close(pipex.pipefd[1]);
-	close(pipex.pipefd[0]);
-	if (execve(pipex.path2, pipex.cmd2_args, ev) == -1)
-		strerror(errno);
-	return ;
+	if (file1 == -1)
+	{
+		if (close(file2) == -1)
+			exit(EXIT_FAILURE);
+		return ;
+	}
+	if (close(file1) == -1)
+		exit(EXIT_FAILURE);
+	if (close(file2) == -1)
+		exit(EXIT_FAILURE);
 }
 
-int main(int ac, char *av[], char **ev)
+void	duped(int oldfd, int newfd)
+{
+	if (dup2(oldfd, newfd) == -1)
+		exit(EXIT_FAILURE);
+}
+
+int	main(int ac, char *av[], char **ev)
 {
 	t_pipex	pipex;
 
-	if (ac == 5)
-	{
-		pipe(pipex.pipefd);
-		pipex.pid = fork();
-		if (pipex.pid == 0)
-			son(pipex, av, ev);
-		else
-			dad(pipex, av, ev);
-	}
-	else
-		write(1, "Need 5 arguments\n", 17);
+	ft_arg_check(ac);
+	pipex.infile_fd = open(av[1], O_RDONLY);
+	if (pipex.infile_fd == -1)
+		ft_wrong_infile(av[4]);
+	pipex.outfile_fd = open(av[4], O_CREAT | O_TRUNC | O_RDWR, 0644);
+	if (pipex.outfile_fd == -1)
+		exit(EXIT_FAILURE);
+	piper(pipex.pipefd);
+	pipex.pid1 = fork();
+	if (pipex.pid1 == 0)
+		daughter(&pipex, av, ev);
+	pipex.pid2 = fork();
+	if (pipex.pid2 == 0)
+		son(pipex, av, ev);
+	closer(pipex.infile_fd, pipex.outfile_fd);
+	closepipes(pipex.pipefd);
+	waitpid(pipex.pid1, NULL, 0);
+	if (waitpid(pipex.pid2, &pipex.status, 0) == -1)
+		return (EXIT_FAILURE);
+	if (WIFEXITED(pipex.status))
+		exiter(pipex.status);
 }
