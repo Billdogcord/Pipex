@@ -16,7 +16,7 @@ The **pipex** project is part of the 42 curriculum, focusing on process manageme
 
 1. **Clone the repository:**
     ```bash
-    git clone https://github.com/yourusername/pipex.git
+    git clone https://github.com/Onesignature/Pipex.git
     cd pipex
     ```
 
